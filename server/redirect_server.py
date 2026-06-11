@@ -53,6 +53,26 @@ def auto_init_db():
         except Exception as e:
             logger.error(f"Failed to auto-initialize database: {e}")
 
+from flask import has_request_context
+
+def get_dynamic_redirect_base_url():
+    """Resolves the base URL to encode in the QR code, dynamically using the current request host if on Vercel or if using default localhost settings."""
+    settings = get_settings()
+    db_base_url = settings.get("redirect_base_url", "http://localhost:3000")
+    
+    if has_request_context():
+        try:
+            current_host = request.host_url.rstrip('/')
+            # If running on Vercel, always use request.host_url (since SQLite is ephemeral)
+            # If the settings value is default localhost, but the user is accessing via something else (like IP or live domain), use current host
+            if IS_VERCEL or db_base_url == "http://localhost:3000" or "localhost" not in current_host:
+                return current_host
+        except Exception as e:
+            logger.error(f"Error resolving dynamic base URL: {e}")
+            
+    return db_base_url
+
+
 # Custom HTML Templates for clean, mobile-responsive layout
 LANDING_PAGE_HTML = """
 <!DOCTYPE html>
@@ -1744,9 +1764,11 @@ def serve_qr_code(qr_identifier):
     if not business:
         abort(404)
         
-    settings = get_settings()
-    redirect_base_url = settings.get("redirect_base_url", "http://localhost:3000")
-    qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
+    if business.get('qr_mode') == 'Direct':
+        qr_url = business['review_url']
+    else:
+        redirect_base_url = get_dynamic_redirect_base_url()
+        qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
     
     try:
         # Box size 10 is perfect for web display
@@ -1799,9 +1821,11 @@ def download_png(qr_identifier):
     business = get_business_by_identifier(qr_identifier)
     if not business:
         abort(404)
-    settings = get_settings()
-    redirect_base_url = settings.get("redirect_base_url", "http://localhost:3000")
-    qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
+    if business.get('qr_mode') == 'Direct':
+        qr_url = business['review_url']
+    else:
+        redirect_base_url = get_dynamic_redirect_base_url()
+        qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
     
     try:
         # Generate high resolution image
@@ -1837,9 +1861,11 @@ def download_svg(qr_identifier):
     business = get_business_by_identifier(qr_identifier)
     if not business:
         abort(404)
-    settings = get_settings()
-    redirect_base_url = settings.get("redirect_base_url", "http://localhost:3000")
-    qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
+    if business.get('qr_mode') == 'Direct':
+        qr_url = business['review_url']
+    else:
+        redirect_base_url = get_dynamic_redirect_base_url()
+        qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
     
     try:
         import qrcode.image.svg
@@ -1859,9 +1885,11 @@ def download_pdf(qr_identifier):
     business = get_business_by_identifier(qr_identifier)
     if not business:
         abort(404)
-    settings = get_settings()
-    redirect_base_url = settings.get("redirect_base_url", "http://localhost:3000")
-    qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
+    if business.get('qr_mode') == 'Direct':
+        qr_url = business['review_url']
+    else:
+        redirect_base_url = get_dynamic_redirect_base_url()
+        qr_url = f"{redirect_base_url.rstrip('/')}/r/{business['qr_identifier']}"
     
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp_path = tmp.name
