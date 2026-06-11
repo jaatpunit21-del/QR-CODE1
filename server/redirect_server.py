@@ -6,7 +6,6 @@ import tempfile
 from flask import Flask, redirect, render_template_string, abort, request, send_file, jsonify, after_this_request
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
-from PySide6.QtCore import QThread, Signal
 from models.business import (
     get_business_by_identifier, 
     update_expired_statuses, 
@@ -1873,21 +1872,31 @@ def download_pdf(qr_identifier):
             os.remove(tmp_path)
         abort(500)
 
-class RedirectServerThread(QThread):
-    """QThread running the Flask redirect server background process."""
-    server_error = Signal(str)
-    
-    def __init__(self, host="0.0.0.0", port=3000):
-        super().__init__()
-        self.host = host
-        self.port = port
-        self.daemon = True # Daemon thread kills itself when main thread dies
+try:
+    from PySide6.QtCore import QThread, Signal
+    PYSIDE_AVAILABLE = True
+except ImportError:
+    PYSIDE_AVAILABLE = False
 
-    def run(self):
-        try:
-            logger.info(f"Starting Local Redirect Server on {self.host}:{self.port}...")
-            # Run Flask Werkzeug server in this thread
-            app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
-        except Exception as e:
-            logger.error(f"Failed to run local redirect server: {e}")
-            self.server_error.emit(str(e))
+if PYSIDE_AVAILABLE:
+    class RedirectServerThread(QThread):
+        """QThread running the Flask redirect server background process."""
+        server_error = Signal(str)
+        
+        def __init__(self, host="0.0.0.0", port=3000):
+            super().__init__()
+            self.host = host
+            self.port = port
+            self.daemon = True # Daemon thread kills itself when main thread dies
+
+        def run(self):
+            try:
+                logger.info(f"Starting Local Redirect Server on {self.host}:{self.port}...")
+                # Run Flask Werkzeug server in this thread
+                app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
+            except Exception as e:
+                logger.error(f"Failed to run local redirect server: {e}")
+                self.server_error.emit(str(e))
+else:
+    class RedirectServerThread:
+        pass

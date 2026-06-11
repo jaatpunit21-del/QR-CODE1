@@ -111,7 +111,7 @@ class SettingsWidget(QWidget):
             "To test dynamic QR codes from a smartphone:<br>"
             "1. Connect your smartphone and PC to the same Wi-Fi network.<br>"
             "2. Set the <b>Redirect Server Base URL</b> above to: "
-            f"<code>http://{local_ip}:5000</code> and click Save.<br>"
+            f"<code>http://{local_ip}:3000</code> and click Save.<br>"
             "3. Generate and scan the QR code. It will access this computer's local redirect server."
         )
         self.info_lbl = QLabel(info_text)
@@ -160,7 +160,7 @@ class SettingsWidget(QWidget):
     def load_settings(self):
         """Loads configuration from the database into inputs."""
         settings = get_settings()
-        self.url_input.setText(settings.get("redirect_base_url", "http://localhost:5000"))
+        self.url_input.setText(settings.get("redirect_base_url", "http://localhost:3000"))
         self.days_input.setValue(int(settings.get("expiring_soon_days", 30)))
 
     def save_server_settings(self):
