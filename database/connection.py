@@ -9,16 +9,22 @@ logger = get_logger("database")
 DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 DB_PATH = os.path.join(DB_DIR, "qr_manager.db")
 
+# Detect Vercel environment to use writeable temp folder
+IS_VERCEL = os.environ.get('VERCEL') or os.environ.get('NOW_REGION')
+if IS_VERCEL:
+    DB_PATH = "/tmp/qr_manager.db"
+
 def get_db_path():
     """Returns the database file path."""
     return DB_PATH
 
 def get_connection():
-    """Returns a sqlite3 connection with WAL mode enabled and Row factory."""
-    os.makedirs(DB_DIR, exist_ok=True)
+    """Returns a sqlite3 connection with WAL mode enabled (on local PC) and Row factory."""
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH, timeout=10.0)
-    # Enable WAL mode for safe concurrent access between GUI and background server
-    conn.execute("PRAGMA journal_mode=WAL;")
+    # Enable WAL mode for local concurrent access, but disable on Vercel
+    if not IS_VERCEL:
+        conn.execute("PRAGMA journal_mode=WAL;")
     conn.row_factory = sqlite3.Row
     return conn
 

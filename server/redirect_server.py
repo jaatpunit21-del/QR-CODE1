@@ -31,8 +31,27 @@ log.setLevel(logging.ERROR)
 app = Flask("QRRedirectServer")
 
 # Create directories
-LOGOS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "logos")
+IS_VERCEL = os.environ.get('VERCEL') or os.environ.get('NOW_REGION')
+if IS_VERCEL:
+    LOGOS_DIR = "/tmp/logos"
+else:
+    LOGOS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "logos")
+
 os.makedirs(LOGOS_DIR, exist_ok=True)
+
+# Auto-initialize database on Vercel
+db_initialized = False
+@app.before_request
+def auto_init_db():
+    global db_initialized
+    if IS_VERCEL and not db_initialized:
+        try:
+            from database.connection import init_db
+            init_db()
+            db_initialized = True
+            logger.info("SQLite database auto-initialized on Vercel.")
+        except Exception as e:
+            logger.error(f"Failed to auto-initialize database: {e}")
 
 # Custom HTML Templates for clean, mobile-responsive layout
 LANDING_PAGE_HTML = """
